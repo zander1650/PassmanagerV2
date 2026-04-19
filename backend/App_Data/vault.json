@@ -1,9 +1,9 @@
 {
-  "isInitialized": false,
-  "saltBase64": "",
+  "isInitialized": true,
+  "saltBase64": "4xQ86SxS/eNvVpV/W9p7Cw==",
   "kdfIterations": 600000,
-  "verifierNonceBase64": "",
-  "verifierCiphertextBase64": "",
-  "verifierTagBase64": "",
+  "verifierNonceBase64": "KrD6UbUmYQYaQ9xd",
+  "verifierCiphertextBase64": "h\u002BfkoQuxouh2kyk3m5hFiS37/DSY",
+  "verifierTagBase64": "XxM3/QTL6zx\u002BYLxMcCRMtw==",
   "entries": []
 }

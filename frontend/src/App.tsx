@@ -330,10 +330,7 @@ function App() {
             <rect x="43" y="29" width="5" height="5" rx="1" fill="#ffffff" />
             <rect x="36" y="29" width="5" height="5" rx="1" fill="#ffffff" />
           </svg>
-          <div>
-            <p className="eyebrow">Secure Password Manager</p>
-            <h1>KEYPASSZF</h1>
-          </div>
+          <span className="brand-name">KEYPASSZF</span>
         </div>
         {isUnlocked && (
           <div className="header-actions">
@@ -346,7 +343,8 @@ function App() {
       </header>
 
       {!isUnlocked && (
-        <section className="card auth-card">
+        <div className="app-body auth-body">
+        <section className="auth-card">
           <h2>{vaultState?.isInitialized ? 'Unlock Vault' : 'Create Master Password'}</h2>
           <p className="muted">Your master password never leaves this device in plain text.</p>
 
@@ -450,11 +448,14 @@ function App() {
             </div>
           </form>
         </section>
+              </div>
+            )}
       )}
 
       {isUnlocked && (
-        <main className="vault-layout">
-          <section className="card sidebar">
+        <div className="app-body">
+        <div className="vault-layout">
+          <aside className="sidebar">
             <div className="sidebar-top">
               <h2>Passwords</h2>
               <button type="button" onClick={() => setSelectedId(null)}>
@@ -492,9 +493,9 @@ function App() {
                 ))}
               </ul>
             )}
-          </section>
+          </aside>
 
-          <section className="card editor">
+          <section className="editor">
             <h2>{selectedId ? 'Credential Details' : 'Add Credential'}</h2>
             <form className="stack" onSubmit={handleSaveCredential}>
               <label htmlFor="site">Site</label>
@@ -623,7 +624,8 @@ function App() {
               </div>
             </form>
           </section>
-        </main>
+        </div>
+        </div>
       )}
 
       <ToastRegion toasts={toasts} onDismiss={removeToast} />
