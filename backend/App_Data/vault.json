@@ -1,9 +1,9 @@
 {
   "isInitialized": true,
-  "saltBase64": "xZ\u002B2C4WkRi2AmcbVskNDXg==",
+  "saltBase64": "vUgq5f6Fxq7L\u002BiGsRCiAIw==",
   "kdfIterations": 600000,
-  "verifierNonceBase64": "U/BoG2Xiw75uptoo",
-  "verifierCiphertextBase64": "UfOM/ZR7Of1WYHxFRDWH/ZR56VvY",
-  "verifierTagBase64": "Dx4PEKc0yG01Zq1NGZE2kA==",
+  "verifierNonceBase64": "R\u002BI//lLBgI6qCJGs",
+  "verifierCiphertextBase64": "0DbqBCip0ZWMRbyl0ARPYjtpwnhn",
+  "verifierTagBase64": "oMxbdo3ozZRVH2iEI5coiw==",
   "entries": []
 }
