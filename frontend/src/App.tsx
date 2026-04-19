@@ -320,14 +320,15 @@ function App() {
             className="brand-logo"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 64 64"
-            fill="none"
             aria-hidden="true"
             focusable="false"
           >
             <rect width="64" height="64" rx="14" fill="#1e7a4c" />
-            <g stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="20" cy="30" r="8" />
-              <path d="M28 26v8h18m-13 0h10m-10-4h10" />
+            <g fill="none" stroke="#ffffff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="32" r="7" />
+              <path d="M25 32h16" />
+              <rect x="41" y="30" width="4" height="4" rx="0.5" />
+              <rect x="47" y="30" width="4" height="4" rx="0.5" />
             </g>
           </svg>
           <span className="brand-name">KEYPASSZF</span>
