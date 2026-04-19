@@ -31,3 +31,4 @@ C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\refint\backen
 C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\backend.pdb
 C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\backend.genruntimeconfig.cache
 C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\ref\backend.dll
+C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\backend.sourcelink.json
