@@ -71,15 +71,15 @@
 
 .auth-card {
   width: 100%;
-  max-width: 520px;
+  max-width: 620px;
   background: var(--surface);
   border: 1px solid var(--border-2);
   border-radius: 4px;
-  padding: 2rem;
+  padding: 2.3rem;
 }
 
 .auth-card h2 {
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   font-weight: 600;
   margin-bottom: 0.4rem;
 }
@@ -375,6 +375,7 @@ button.danger:hover:not(:disabled) {
 
 .actions.split {
   justify-content: space-between;
+  align-items: center;
 }
 
 /* -- Generator fieldset ------------------------------- */
@@ -418,6 +419,13 @@ button.danger:hover:not(:disabled) {
   cursor: pointer;
 }
 
+.generator-controls > label:first-child {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 0.55rem;
+}
+
 .generator-controls input[type='number'] {
   width: 64px;
   padding: 0.32rem 0.45rem;
@@ -429,8 +437,8 @@ button.danger:hover:not(:disabled) {
 }
 
 .auth-card input {
-  font-size: 1rem;
-  padding: 0.68rem 0.8rem;
+  font-size: 1.06rem;
+  padding: 0.78rem 0.9rem;
 }
 
 .auth-card .actions {
