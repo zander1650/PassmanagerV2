@@ -1,11 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
 
 :root {
-  --text: #192734;
-  --muted: #5f7283;
-  --bg: #f3f6f9;
-  --surface: #fbfdff;
-  --border: #d4dee8;
+  --text: #162a1e;
+  --muted: #4e7060;
+  --bg: #f1f8f4;
+  --surface: #fafefb;
+  --border: #c2dccb;
   --sans: 'Public Sans', 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', 'Consolas', monospace;
 
@@ -26,6 +26,7 @@ body {
   min-height: 100vh;
   color: var(--text);
   background: var(--bg);
+  background-image: radial-gradient(ellipse at 60% 0%, #d4efdf 0%, transparent 60%);
 }
 
 h1,

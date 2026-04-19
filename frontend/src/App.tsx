@@ -315,9 +315,25 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div>
-          <p className="eyebrow">PassMan</p>
-          <h1>Secure Password Vault</h1>
+        <div className="brand">
+          <svg
+            className="brand-logo"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 64 64"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect width="64" height="64" rx="14" fill="#1e7a4c" />
+            <circle cx="24" cy="26" r="11" stroke="#ffffff" strokeWidth="5" fill="none" />
+            <rect x="31" y="24" width="20" height="5" rx="2" fill="#ffffff" />
+            <rect x="43" y="29" width="5" height="5" rx="1" fill="#ffffff" />
+            <rect x="36" y="29" width="5" height="5" rx="1" fill="#ffffff" />
+          </svg>
+          <div>
+            <p className="eyebrow">Secure Password Manager</p>
+            <h1>KEYPASSZF</h1>
+          </div>
         </div>
         {isUnlocked && (
           <div className="header-actions">

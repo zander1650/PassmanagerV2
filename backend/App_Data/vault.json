@@ -1,18 +1,9 @@
 {
-  "isInitialized": true,
-  "saltBase64": "NA\u002BhkFvczgZbzeZhkZd1KQ==",
+  "isInitialized": false,
+  "saltBase64": "",
   "kdfIterations": 600000,
-  "verifierNonceBase64": "IDoG0rKAgPfr7m8D",
-  "verifierCiphertextBase64": "yndvwQtjd0SRS3Dxh\u002BdWWq3XwEk5",
-  "verifierTagBase64": "oEPKt8blbF6XTs84h113yw==",
-  "entries": [
-    {
-      "id": "d72b4b51-61cd-4f05-9eb9-4b9cae24a88e",
-      "nonceBase64": "fBOKIDylljF0Pkgz",
-      "ciphertextBase64": "JOE/63hEjr\u002B7P4tnVl7jibIjG\u002BSBp8UJfrM0qsycgY6RrnmJmjqGs6Hg5SrhqC879Kog1FbiyU7JXvWz377t",
-      "tagBase64": "FNwM8m8NotPCkK\u002BqajUspQ==",
-      "createdAtUtc": "2026-04-19T23:11:38.6311798Z",
-      "updatedAtUtc": "2026-04-19T23:11:38.6311798Z"
-    }
-  ]
+  "verifierNonceBase64": "",
+  "verifierCiphertextBase64": "",
+  "verifierTagBase64": "",
+  "entries": []
 }

@@ -7,9 +7,23 @@
 .app-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   margin-bottom: 1.25rem;
   gap: 1rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.brand-logo {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(30, 122, 76, 0.28);
 }
 
 .eyebrow {
@@ -40,7 +54,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(15, 24, 35, 0.06);
+  box-shadow: 0 8px 24px rgba(10, 40, 20, 0.07);
 }
 
 .auth-card {
@@ -102,13 +116,13 @@
 }
 
 .credential-item:hover {
-  border-color: #9fb0c2;
+  border-color: #7abf97;
   transform: translateY(-1px);
 }
 
 .credential-item.active {
-  border-color: #3b6f95;
-  background: #f2f7fb;
+  border-color: #1e7a4c;
+  background: #eaf6ef;
 }
 
 .credential-item span {
@@ -138,7 +152,7 @@
 
 label {
   font-size: 0.92rem;
-  color: #334a5f;
+  color: #1e4a30;
 }
 
 input,
@@ -158,14 +172,14 @@ input {
 
 input:focus-visible,
 button:focus-visible {
-  outline: 2px solid #5d89ad;
+  outline: 2px solid #3aab6b;
   outline-offset: 2px;
 }
 
 button {
   border: 1px solid transparent;
   border-radius: 10px;
-  background: #245b86;
+  background: #1e7a4c;
   color: #ffffff;
   cursor: pointer;
   padding: 0.56rem 0.85rem;
@@ -188,8 +202,8 @@ button:disabled {
 
 button.ghost {
   background: #ffffff;
-  color: #224a68;
-  border-color: #b8c8d7;
+  color: #1a5c38;
+  border-color: #a0cfb5;
 }
 
 button.danger {
@@ -288,14 +302,14 @@ button.danger {
   align-items: center;
   gap: 0.8rem;
   border-radius: 10px;
-  border: 1px solid #c8d5e1;
+  border: 1px solid #b8d9c4;
   padding: 0.6rem 0.65rem;
   background: #ffffff;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
 }
 
 .toast.success {
-  border-color: #8ac3ad;
+  border-color: #5dbf8a;
 }
 
 .toast.error {
@@ -305,8 +319,8 @@ button.danger {
 .toast-dismiss {
   padding: 0.2rem 0.5rem;
   background: transparent;
-  border: 1px solid #b8c8d7;
-  color: #2f4f68;
+  border: 1px solid #a0cfb5;
+  color: #1a5c38;
 }
 
 @media (max-width: 900px) {
