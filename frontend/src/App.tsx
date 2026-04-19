@@ -325,10 +325,10 @@ function App() {
             focusable="false"
           >
             <rect width="64" height="64" rx="14" fill="#1e7a4c" />
-            <circle cx="24" cy="26" r="11" stroke="#ffffff" strokeWidth="5" fill="none" />
-            <rect x="31" y="24" width="20" height="5" rx="2" fill="#ffffff" />
-            <rect x="43" y="29" width="5" height="5" rx="1" fill="#ffffff" />
-            <rect x="36" y="29" width="5" height="5" rx="1" fill="#ffffff" />
+            <g stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="20" cy="30" r="8" />
+              <path d="M28 26v8h18m-13 0h10m-10-4h10" />
+            </g>
           </svg>
           <span className="brand-name">KEYPASSZF</span>
         </div>
