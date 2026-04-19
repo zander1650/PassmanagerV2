@@ -32,3 +32,4 @@ C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\backend.pdb
 C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\backend.genruntimeconfig.cache
 C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\ref\backend.dll
 C:\Users\zande\OneDrive\Desktop\PassManv2\backend\obj\Debug\net9.0\backend.sourcelink.json
+C:\Users\zande\OneDrive\Desktop\PassManv2\backend\bin\Debug\net9.0\App_Data\vault.json

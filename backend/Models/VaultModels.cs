@@ -25,6 +25,7 @@ public sealed record VaultStateResponse(bool IsInitialized, int KdfIterations, s
 
 public sealed record SetupVaultRequest(string MasterPassword);
 public sealed record UnlockVaultRequest(string MasterPassword);
+public sealed record ResetVaultRequest(string Confirmation);
 
 public sealed record UnlockVaultResponse(bool Ok, string SessionToken, DateTime ExpiresAtUtc);
 

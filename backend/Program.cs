@@ -26,7 +26,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("frontend");
 
 app.MapGet("/api/vault/state", async (VaultRepository repository, CancellationToken cancellationToken) =>
@@ -101,6 +104,20 @@ app.MapPost("/api/vault/unlock", async (
 
     var (token, expiresAtUtc) = sessionTokenService.CreateToken(TimeSpan.FromMinutes(30));
     return Results.Ok(new UnlockVaultResponse(true, token, expiresAtUtc));
+});
+
+app.MapPost("/api/vault/reset", async (
+    ResetVaultRequest request,
+    VaultRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    if (!string.Equals(request.Confirmation, "RESET", StringComparison.Ordinal))
+    {
+        return Results.BadRequest(new { message = "Reset confirmation is invalid." });
+    }
+
+    await repository.SaveAsync(new VaultState(), cancellationToken);
+    return Results.Ok(new { ok = true });
 });
 
 app.MapGet("/api/vault/entries", async (

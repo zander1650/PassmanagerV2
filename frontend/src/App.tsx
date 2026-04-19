@@ -1,37 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { ConfirmDialog } from './components/ConfirmDialog'
+import { ToastRegion } from './components/ToastRegion'
+import { useInactivityLock } from './hooks/useInactivityLock'
+import { useToasts } from './hooks/useToasts'
+import {
+  createEntry,
+  deleteEntry,
+  getEntries,
+  getVaultState,
+  resetVault,
+  setupVault,
+  unlockVault,
+  updateEntry,
+} from './services/api'
+import {
+  copyToClipboardWithAutoClear,
+  decryptCredential,
+  deriveVaultKey,
+  encryptCredential,
+  generatePassword,
+  getDefaultGeneratorOptions,
+} from './services/crypto'
+import type { GeneratorOptions, VaultCredential, VaultPayload, VaultState } from './types'
 import './App.css'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5085'
+const AUTO_LOCK_TIMEOUT_MS = 5 * 60 * 1000
 
-type VaultState = {
-  isInitialized: boolean
-  kdfIterations: number
-  saltBase64: string
-}
-
-type ServerEntry = {
-  id: string
-  nonceBase64: string
-  ciphertextBase64: string
-  tagBase64: string
-  createdAtUtc: string
-  updatedAtUtc: string
-}
-
-type VaultItem = {
-  id: string
-  title: string
-  username: string
-  password: string
-  website: string
-  notes: string
-}
-
-type EncryptResult = {
-  nonceBase64: string
-  ciphertextBase64: string
-  tagBase64: string
+const EMPTY_FORM: VaultPayload = {
+  site: '',
+  username: '',
+  password: '',
 }
 
 function App() {
@@ -39,172 +38,132 @@ function App() {
   const [masterPassword, setMasterPassword] = useState('')
   const [sessionToken, setSessionToken] = useState('')
   const [aesKey, setAesKey] = useState<CryptoKey | null>(null)
-  const [items, setItems] = useState<VaultItem[]>([])
+  const [credentials, setCredentials] = useState<VaultCredential[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [status, setStatus] = useState('')
-  const [error, setError] = useState('')
-  const [isBusy, setIsBusy] = useState(false)
-  const [search, setSearch] = useState('')
-  const [form, setForm] = useState({
-    title: '',
-    username: '',
-    password: '',
-    website: '',
-    notes: '',
-  })
+  const [searchValue, setSearchValue] = useState('')
+  const [formData, setFormData] = useState<VaultPayload>(EMPTY_FORM)
+  const [generatorOptions, setGeneratorOptions] = useState<GeneratorOptions>(getDefaultGeneratorOptions())
+  const [busy, setBusy] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showResetDialog, setShowResetDialog] = useState(false)
 
-  const selectedItem = useMemo(() => {
+  const { toasts, success, error, info, removeToast } = useToasts()
+
+  const selectedCredential = useMemo(() => {
     if (!selectedId) {
       return null
     }
-    return items.find((item) => item.id === selectedId) ?? null
-  }, [items, selectedId])
 
-  const filteredItems = useMemo(() => {
-    const value = search.trim().toLowerCase()
-    if (!value) {
-      return items
+    return credentials.find((item) => item.id === selectedId) ?? null
+  }, [credentials, selectedId])
+
+  const filteredCredentials = useMemo(() => {
+    const query = searchValue.trim().toLowerCase()
+    if (!query) {
+      return credentials
     }
-    return items.filter((item) => {
-      return (
-        item.title.toLowerCase().includes(value) ||
-        item.username.toLowerCase().includes(value) ||
-        item.website.toLowerCase().includes(value)
-      )
+
+    return credentials.filter((item) => {
+      return item.site.toLowerCase().includes(query) || item.username.toLowerCase().includes(query)
     })
-  }, [items, search])
+  }, [credentials, searchValue])
 
   useEffect(() => {
-    void loadVaultState()
+    void refreshVaultState()
   }, [])
 
   useEffect(() => {
-    if (selectedItem) {
-      setForm({
-        title: selectedItem.title,
-        username: selectedItem.username,
-        password: selectedItem.password,
-        website: selectedItem.website,
-        notes: selectedItem.notes,
-      })
+    if (!selectedCredential) {
+      setFormData(EMPTY_FORM)
       return
     }
 
-    setForm({
-      title: '',
-      username: '',
-      password: '',
-      website: '',
-      notes: '',
+    setFormData({
+      site: selectedCredential.site,
+      username: selectedCredential.username,
+      password: selectedCredential.password,
     })
-  }, [selectedItem])
+  }, [selectedCredential])
 
-  async function loadVaultState() {
+  useInactivityLock({
+    enabled: Boolean(sessionToken),
+    timeoutMs: AUTO_LOCK_TIMEOUT_MS,
+    onLock: () => {
+      lockVault()
+      info('Vault auto-locked due to inactivity.')
+    },
+  })
+
+  async function refreshVaultState() {
     try {
-      const response = await fetch(`${API_BASE}/api/vault/state`)
-      if (!response.ok) {
-        throw new Error('Unable to load vault state.')
-      }
-      const data = (await response.json()) as VaultState
-      setVaultState(data)
+      const state = await getVaultState()
+      setVaultState(state)
     } catch {
-      setError('Could not connect to backend API. Start backend first.')
+      error('Cannot reach backend API. Start backend on localhost:5085.')
     }
   }
 
-  async function setupVault(event: FormEvent<HTMLFormElement>) {
+  async function handleInitialize(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setError('')
-    setStatus('')
 
     if (masterPassword.length < 12) {
-      setError('Use at least 12 characters for the master password.')
+      error('Use at least 12 characters for your master password.')
       return
     }
 
     try {
-      setIsBusy(true)
-      const response = await fetch(`${API_BASE}/api/vault/setup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ masterPassword }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Vault setup failed.')
-      }
-
-      await loadVaultState()
-      await unlockVault()
-      setStatus('Vault initialized and unlocked.')
-    } catch {
-      setError('Failed to initialize vault. Try another master password.')
+      setBusy(true)
+      await setupVault(masterPassword)
+      const latestState = await getVaultState()
+      setVaultState(latestState)
+      await handleUnlock(undefined, latestState)
+      success('Vault initialized.')
+    } catch (reason) {
+      error(reason instanceof Error ? reason.message : 'Initialization failed.')
     } finally {
-      setIsBusy(false)
+      setBusy(false)
     }
   }
 
-  async function unlockVault(event?: FormEvent<HTMLFormElement>) {
+  async function handleUnlock(event?: FormEvent<HTMLFormElement>, stateOverride?: VaultState) {
     event?.preventDefault()
-    setError('')
-    setStatus('')
-
-    if (!vaultState?.isInitialized) {
-      setError('Vault is not initialized.')
-      return
-    }
 
     if (!masterPassword) {
-      setError('Master password is required.')
+      error('Master password is required.')
       return
     }
 
     try {
-      setIsBusy(true)
-      const key = await deriveVaultKey(masterPassword, vaultState.saltBase64, vaultState.kdfIterations)
+      setBusy(true)
+      const latestState = stateOverride ?? (await getVaultState())
+      setVaultState(latestState)
 
-      const response = await fetch(`${API_BASE}/api/vault/unlock`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ masterPassword }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Unlock failed.')
+      if (!latestState.isInitialized) {
+        error('Vault is not initialized yet.')
+        return
       }
 
-      const unlockData = (await response.json()) as {
-        ok: boolean
-        sessionToken: string
-        expiresAtUtc: string
-      }
+      const key = await deriveVaultKey(masterPassword, latestState.saltBase64, latestState.kdfIterations)
+      const unlockResult = await unlockVault(masterPassword)
 
       setAesKey(key)
-      setSessionToken(unlockData.sessionToken)
-      setStatus('Vault unlocked.')
-      await loadEntries(unlockData.sessionToken, key)
-    } catch {
-      setError('Incorrect master password or inaccessible vault.')
+      setSessionToken(unlockResult.sessionToken)
+      await loadCredentials(unlockResult.sessionToken, key)
+      success('Vault unlocked.')
+    } catch (reason) {
+      error(reason instanceof Error ? reason.message : 'Unlock failed.')
     } finally {
-      setIsBusy(false)
+      setBusy(false)
     }
   }
 
-  async function loadEntries(token: string, key: CryptoKey) {
-    const response = await fetch(`${API_BASE}/api/vault/entries`, {
-      headers: { 'X-Vault-Session': token },
-    })
+  async function loadCredentials(token: string, key: CryptoKey) {
+    const entries = await getEntries(token)
+    const nextCredentials: VaultCredential[] = []
 
-    if (!response.ok) {
-      throw new Error('Could not load entries.')
-    }
-
-    const encryptedEntries = (await response.json()) as ServerEntry[]
-    const decrypted: VaultItem[] = []
-
-    for (const entry of encryptedEntries) {
+    for (const entry of entries) {
       try {
-        const data = await decryptPayload<VaultItemData>(
+        const decrypted = await decryptCredential(
           {
             nonceBase64: entry.nonceBase64,
             ciphertextBase64: entry.ciphertextBase64,
@@ -213,264 +172,435 @@ function App() {
           key,
         )
 
-        decrypted.push({
+        const normalized = normalizePayload(decrypted)
+        if (!normalized.password) {
+          continue
+        }
+
+        nextCredentials.push({
           id: entry.id,
-          title: data.title,
-          username: data.username,
-          password: data.password,
-          website: data.website,
-          notes: data.notes,
+          ...normalized,
         })
       } catch {
-        // Skip entries that fail authentication or decryption.
+        // Ignore entry if decryption or payload parsing fails.
       }
     }
 
-    setItems(decrypted)
-    if (decrypted.length > 0 && !selectedId) {
-      setSelectedId(decrypted[0].id)
-    }
+    setCredentials(nextCredentials)
+    setSelectedId(nextCredentials.length > 0 ? nextCredentials[0].id : null)
   }
 
-  async function saveEntry(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveCredential(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!aesKey || !sessionToken) {
-      setError('Unlock the vault first.')
+
+    if (!sessionToken || !aesKey) {
+      error('Unlock vault first.')
       return
     }
 
-    if (!form.title.trim() || !form.password.trim()) {
-      setError('Entry title and password are required.')
-      return
+    const payload = {
+      site: formData.site.trim(),
+      username: formData.username.trim(),
+      password: formData.password,
     }
 
-    setError('')
-    setStatus('')
-
-    const payload = await encryptPayload(
-      {
-        title: form.title.trim(),
-        username: form.username.trim(),
-        password: form.password,
-        website: form.website.trim(),
-        notes: form.notes.trim(),
-      },
-      aesKey,
-    )
+    if (!payload.site || !payload.username || !payload.password) {
+      error('Site, username, and password are required.')
+      return
+    }
 
     try {
-      setIsBusy(true)
-      const isEdit = Boolean(selectedId)
-      const endpoint = isEdit
-        ? `${API_BASE}/api/vault/entries/${selectedId}`
-        : `${API_BASE}/api/vault/entries`
-      const method = isEdit ? 'PUT' : 'POST'
+      setBusy(true)
+      const encrypted = await encryptCredential(payload, aesKey)
+      const isEditing = Boolean(selectedId)
 
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Vault-Session': sessionToken,
-        },
-        body: JSON.stringify(payload),
-      })
+      if (isEditing && selectedId) {
+        await updateEntry(sessionToken, selectedId, encrypted)
 
-      if (!response.ok) {
-        throw new Error('Save failed.')
+        setCredentials((current) =>
+          current.map((item) => (item.id === selectedId ? { id: selectedId, ...payload } : item)),
+        )
+        success('Credential updated.')
+      } else {
+        const created = await createEntry(sessionToken, encrypted)
+        const next = { id: created.id, ...payload }
+        setCredentials((current) => [next, ...current])
+        setSelectedId(created.id)
+        success('Credential saved.')
       }
-
-      const savedEntry = (await response.json()) as ServerEntry
-      const normalized: VaultItem = {
-        id: savedEntry.id,
-        title: form.title.trim(),
-        username: form.username.trim(),
-        password: form.password,
-        website: form.website.trim(),
-        notes: form.notes.trim(),
-      }
-
-      setItems((current) => {
-        if (isEdit) {
-          return current.map((item) => (item.id === normalized.id ? normalized : item))
-        }
-        return [normalized, ...current]
-      })
-
-      setSelectedId(normalized.id)
-      setStatus(isEdit ? 'Entry updated.' : 'Entry created.')
-    } catch {
-      setError('Unable to save entry.')
+    } catch (reason) {
+      error(reason instanceof Error ? reason.message : 'Unable to save credential.')
     } finally {
-      setIsBusy(false)
+      setBusy(false)
     }
   }
 
-  async function deleteSelected() {
-    if (!selectedId || !sessionToken) {
+  async function confirmDeleteCredential() {
+    if (!sessionToken || !selectedId) {
       return
     }
 
     try {
-      setIsBusy(true)
-      const response = await fetch(`${API_BASE}/api/vault/entries/${selectedId}`, {
-        method: 'DELETE',
-        headers: { 'X-Vault-Session': sessionToken },
-      })
-
-      if (!response.ok) {
-        throw new Error('Delete failed.')
-      }
-
-      setItems((current) => current.filter((item) => item.id !== selectedId))
+      setBusy(true)
+      await deleteEntry(sessionToken, selectedId)
+      setCredentials((current) => current.filter((item) => item.id !== selectedId))
       setSelectedId(null)
-      setStatus('Entry deleted.')
-    } catch {
-      setError('Unable to delete selected entry.')
+      setShowDeleteDialog(false)
+      success('Credential deleted.')
+    } catch (reason) {
+      error(reason instanceof Error ? reason.message : 'Unable to delete credential.')
     } finally {
-      setIsBusy(false)
+      setBusy(false)
     }
   }
 
-  function newEntry() {
+  function lockVault() {
+    setSessionToken('')
+    setAesKey(null)
+    setCredentials([])
     setSelectedId(null)
-    setForm({
-      title: '',
-      username: '',
-      password: '',
-      website: '',
-      notes: '',
-    })
+    setFormData({ ...EMPTY_FORM })
+    setMasterPassword('')
   }
 
-  function generateMasterPassword() {
-    const generated = generateStrongPassword(28)
-    setMasterPassword(generated)
-    setStatus('Strong master password generated. Save it safely.')
-    setError('')
+  async function confirmResetVault() {
+    try {
+      setBusy(true)
+      await resetVault()
+      lockVault()
+      setVaultState({ isInitialized: false, kdfIterations: 600000, saltBase64: '' })
+      setShowResetDialog(false)
+      success('Vault reset complete. Create a new master password.')
+    } catch {
+      error('Unable to reset vault.')
+    } finally {
+      setBusy(false)
+    }
   }
+
+  async function handleCopySecret(value: string, label: string) {
+    if (!value) {
+      return
+    }
+
+    try {
+      await copyToClipboardWithAutoClear(value)
+      success(`${label} copied. Clipboard clears in 12 seconds.`)
+    } catch {
+      error(`Unable to copy ${label.toLowerCase()}.`)
+    }
+  }
+
+  function handleGenerateCredentialPassword() {
+    try {
+      const password = generatePassword(generatorOptions)
+      setFormData((current) => ({ ...current, password }))
+      info('Strong password generated.')
+    } catch (reason) {
+      error(reason instanceof Error ? reason.message : 'Unable to generate password.')
+    }
+  }
+
+  function handleGenerateMasterPassword() {
+    try {
+      setMasterPassword(generatePassword({ ...generatorOptions, length: Math.max(18, generatorOptions.length) }))
+      info('Master password generated.')
+    } catch (reason) {
+      error(reason instanceof Error ? reason.message : 'Unable to generate password.')
+    }
+  }
+
+  const isUnlocked = Boolean(sessionToken)
 
   return (
-    <div className="app-shell">
-      <header className="hero">
-        <p className="eyebrow">PassMan v2</p>
-        <h1>Personal Password Vault</h1>
-        <p className="hero-copy">
-          AES-GCM encrypted entries, PBKDF2 key derivation, and master-password protected access.
-        </p>
+    <div className="app">
+      <header className="app-header">
+        <div>
+          <p className="eyebrow">PassMan</p>
+          <h1>Secure Password Vault</h1>
+        </div>
+        {isUnlocked && (
+          <div className="header-actions">
+            <span className="session-hint">Auto-lock: 5 minutes</span>
+            <button type="button" className="ghost" onClick={lockVault}>
+              Logout
+            </button>
+          </div>
+        )}
       </header>
 
-      {!sessionToken && (
-        <section className="panel auth-panel">
+      {!isUnlocked && (
+        <section className="card auth-card">
           <h2>{vaultState?.isInitialized ? 'Unlock Vault' : 'Create Master Password'}</h2>
-          <form onSubmit={vaultState?.isInitialized ? unlockVault : setupVault}>
-            <label htmlFor="masterPassword">Master Password</label>
+          <p className="muted">Your master password never leaves this device in plain text.</p>
+
+          <form onSubmit={vaultState?.isInitialized ? handleUnlock : handleInitialize} className="stack">
+            <label htmlFor="master-password">Master Password</label>
             <input
-              id="masterPassword"
+              id="master-password"
               type="password"
               autoComplete="new-password"
               value={masterPassword}
               onChange={(event) => setMasterPassword(event.target.value)}
-              placeholder="Enter master password"
+              placeholder="Enter a strong master password"
             />
 
-            <div className="auth-actions">
-              <button type="button" className="ghost" onClick={generateMasterPassword}>
-                Generate Master Password
+            <fieldset className="generator-fieldset">
+              <legend>Password Generator</legend>
+              <div className="generator-controls">
+                <label>
+                  Length
+                  <input
+                    type="range"
+                    min={12}
+                    max={40}
+                    value={generatorOptions.length}
+                    onChange={(event) =>
+                      setGeneratorOptions((current) => ({
+                        ...current,
+                        length: Number(event.target.value),
+                      }))
+                    }
+                  />
+                  <span>{generatorOptions.length}</span>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={generatorOptions.includeUppercase}
+                    onChange={(event) =>
+                      setGeneratorOptions((current) => ({
+                        ...current,
+                        includeUppercase: event.target.checked,
+                      }))
+                    }
+                  />
+                  Uppercase
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={generatorOptions.includeLowercase}
+                    onChange={(event) =>
+                      setGeneratorOptions((current) => ({
+                        ...current,
+                        includeLowercase: event.target.checked,
+                      }))
+                    }
+                  />
+                  Lowercase
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={generatorOptions.includeNumbers}
+                    onChange={(event) =>
+                      setGeneratorOptions((current) => ({
+                        ...current,
+                        includeNumbers: event.target.checked,
+                      }))
+                    }
+                  />
+                  Numbers
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={generatorOptions.includeSymbols}
+                    onChange={(event) =>
+                      setGeneratorOptions((current) => ({
+                        ...current,
+                        includeSymbols: event.target.checked,
+                      }))
+                    }
+                  />
+                  Symbols
+                </label>
+              </div>
+            </fieldset>
+
+            <div className="actions">
+              <button type="button" className="ghost" onClick={handleGenerateMasterPassword}>
+                Generate
               </button>
-              <button disabled={isBusy} type="submit">
-                {vaultState?.isInitialized ? 'Unlock' : 'Initialize Vault'}
+              <button type="submit" disabled={busy}>
+                {vaultState?.isInitialized ? 'Unlock' : 'Initialize'}
               </button>
+              {vaultState?.isInitialized && (
+                <button type="button" className="danger" onClick={() => setShowResetDialog(true)}>
+                  Reset Vault
+                </button>
+              )}
             </div>
           </form>
         </section>
       )}
 
-      {sessionToken && (
-        <main className="vault-grid">
-          <section className="panel sidebar">
-            <div className="sidebar-head">
-              <h2>Entries</h2>
-              <button type="button" onClick={newEntry}>
-                + New
+      {isUnlocked && (
+        <main className="vault-layout">
+          <section className="card sidebar">
+            <div className="sidebar-top">
+              <h2>Passwords</h2>
+              <button type="button" onClick={() => setSelectedId(null)}>
+                New
               </button>
             </div>
 
             <input
+              type="search"
               className="search"
-              placeholder="Search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder="Search by site or username"
+              aria-label="Search passwords"
             />
 
-            <ul className="entry-list">
-              {filteredItems.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className={selectedId === item.id ? 'entry active' : 'entry'}
-                    onClick={() => setSelectedId(item.id)}
-                  >
-                    <span>{item.title || 'Untitled'}</span>
-                    <small>{item.username || item.website || 'No details'}</small>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {filteredCredentials.length === 0 ? (
+              <div className="empty-state">
+                <h3>No passwords saved yet</h3>
+                <p>Create your first credential to start building your vault.</p>
+              </div>
+            ) : (
+              <ul className="credential-list">
+                {filteredCredentials.map((credential) => (
+                  <li key={credential.id}>
+                    <button
+                      type="button"
+                      className={selectedId === credential.id ? 'credential-item active' : 'credential-item'}
+                      onClick={() => setSelectedId(credential.id)}
+                    >
+                      <span>{credential.site}</span>
+                      <small>{credential.username}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
-          <section className="panel editor">
-            <h2>{selectedId ? 'Edit Entry' : 'Create Entry'}</h2>
-            <form className="editor-form" onSubmit={saveEntry}>
-              <label htmlFor="title">Title</label>
+          <section className="card editor">
+            <h2>{selectedId ? 'Credential Details' : 'Add Credential'}</h2>
+            <form className="stack" onSubmit={handleSaveCredential}>
+              <label htmlFor="site">Site</label>
               <input
-                id="title"
-                value={form.title}
-                onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                placeholder="GitHub"
+                id="site"
+                value={formData.site}
+                onChange={(event) => setFormData((current) => ({ ...current, site: event.target.value }))}
+                placeholder="github.com"
               />
 
-              <label htmlFor="username">Username / Email</label>
+              <label htmlFor="username">Username</label>
               <input
                 id="username"
-                value={form.username}
-                onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+                value={formData.username}
+                onChange={(event) => setFormData((current) => ({ ...current, username: event.target.value }))}
                 placeholder="you@example.com"
               />
 
               <label htmlFor="password">Password</label>
               <input
                 id="password"
-                value={form.password}
-                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                type="text"
+                value={formData.password}
+                onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
                 placeholder="Stored encrypted"
               />
 
-              <label htmlFor="website">Website</label>
-              <input
-                id="website"
-                value={form.website}
-                onChange={(event) => setForm((current) => ({ ...current, website: event.target.value }))}
-                placeholder="https://example.com"
-              />
+              <div className="actions split">
+                <button type="button" className="ghost" onClick={handleGenerateCredentialPassword}>
+                  Generate Password
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => void handleCopySecret(formData.password, 'Password')}
+                >
+                  Copy Password
+                </button>
+              </div>
 
-              <label htmlFor="notes">Notes</label>
-              <textarea
-                id="notes"
-                rows={4}
-                value={form.notes}
-                onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-                placeholder="Recovery codes, hints, metadata"
-              />
+              <fieldset className="generator-fieldset compact">
+                <legend>Generator Options</legend>
+                <div className="generator-controls compact">
+                  <label>
+                    Length
+                    <input
+                      type="number"
+                      min={8}
+                      max={64}
+                      value={generatorOptions.length}
+                      onChange={(event) =>
+                        setGeneratorOptions((current) => ({
+                          ...current,
+                          length: Number(event.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={generatorOptions.includeUppercase}
+                      onChange={(event) =>
+                        setGeneratorOptions((current) => ({
+                          ...current,
+                          includeUppercase: event.target.checked,
+                        }))
+                      }
+                    />
+                    Uppercase
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={generatorOptions.includeLowercase}
+                      onChange={(event) =>
+                        setGeneratorOptions((current) => ({
+                          ...current,
+                          includeLowercase: event.target.checked,
+                        }))
+                      }
+                    />
+                    Lowercase
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={generatorOptions.includeNumbers}
+                      onChange={(event) =>
+                        setGeneratorOptions((current) => ({
+                          ...current,
+                          includeNumbers: event.target.checked,
+                        }))
+                      }
+                    />
+                    Numbers
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={generatorOptions.includeSymbols}
+                      onChange={(event) =>
+                        setGeneratorOptions((current) => ({
+                          ...current,
+                          includeSymbols: event.target.checked,
+                        }))
+                      }
+                    />
+                    Symbols
+                  </label>
+                </div>
+              </fieldset>
 
-              <div className="editor-actions">
-                <button disabled={isBusy} type="submit">
-                  {selectedId ? 'Save Changes' : 'Save Entry'}
+              <div className="actions split">
+                <button type="submit" disabled={busy}>
+                  {selectedId ? 'Save Changes' : 'Save Password'}
                 </button>
                 <button
                   type="button"
                   className="danger"
-                  disabled={isBusy || !selectedId}
-                  onClick={deleteSelected}
+                  disabled={!selectedId || busy}
+                  onClick={() => setShowDeleteDialog(true)}
                 >
                   Delete
                 </button>
@@ -480,115 +610,46 @@ function App() {
         </main>
       )}
 
-      {(status || error) && (
-        <div className={error ? 'toast error' : 'toast'}>
-          <span>{error || status}</span>
-        </div>
-      )}
+      <ToastRegion toasts={toasts} onDismiss={removeToast} />
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="Delete credential"
+        message="This action cannot be undone. Do you want to continue?"
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={() => void confirmDeleteCredential()}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
+
+      <ConfirmDialog
+        open={showResetDialog}
+        title="Reset vault"
+        message="Resetting will permanently remove every encrypted entry in this vault."
+        confirmLabel="Reset Vault"
+        tone="danger"
+        onConfirm={() => void confirmResetVault()}
+        onCancel={() => setShowResetDialog(false)}
+      />
     </div>
   )
 }
 
-type VaultItemData = Omit<VaultItem, 'id'>
+function normalizePayload(payload: VaultPayload | Record<string, unknown>): VaultPayload {
+  const record = payload as Record<string, unknown>
 
-async function deriveVaultKey(masterPassword: string, saltBase64: string, iterations: number) {
-  const encoder = new TextEncoder()
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(masterPassword),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveKey'],
-  )
-
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: base64ToArrayBuffer(saltBase64),
-      iterations,
-      hash: 'SHA-512',
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt'],
-  )
-}
-
-async function encryptPayload(data: VaultItemData, key: CryptoKey): Promise<EncryptResult> {
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const plaintext = new TextEncoder().encode(JSON.stringify(data))
-  const encrypted = new Uint8Array(
-    await crypto.subtle.encrypt(
-      {
-        name: 'AES-GCM',
-        iv,
-        tagLength: 128,
-      },
-      key,
-      plaintext,
-    ),
-  )
-
-  const tagStart = encrypted.length - 16
-  const ciphertext = encrypted.slice(0, tagStart)
-  const tag = encrypted.slice(tagStart)
+  const legacySite = asString(record.website) ?? asString(record.domain)
+  const legacyUsername = asString(record.email)
 
   return {
-    nonceBase64: bytesToBase64(iv),
-    ciphertextBase64: bytesToBase64(ciphertext),
-    tagBase64: bytesToBase64(tag),
+    site: asString(record.site) ?? legacySite ?? '',
+    username: asString(record.username) ?? legacyUsername ?? '',
+    password: asString(record.password) ?? '',
   }
 }
 
-async function decryptPayload<T>(payload: EncryptResult, key: CryptoKey): Promise<T> {
-  const nonce = new Uint8Array(base64ToArrayBuffer(payload.nonceBase64))
-  const ciphertext = new Uint8Array(base64ToArrayBuffer(payload.ciphertextBase64))
-  const tag = new Uint8Array(base64ToArrayBuffer(payload.tagBase64))
-
-  const combined = new Uint8Array(ciphertext.length + tag.length)
-  combined.set(ciphertext)
-  combined.set(tag, ciphertext.length)
-
-  const plaintext = await crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: nonce,
-      tagLength: 128,
-    },
-    key,
-    combined,
-  )
-
-  const json = new TextDecoder().decode(plaintext)
-  return JSON.parse(json) as T
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index])
-  }
-  return btoa(binary)
-}
-
-function base64ToArrayBuffer(value: string): ArrayBuffer {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes.buffer.slice(0)
-}
-
-function generateStrongPassword(length: number) {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()-_=+[]{}?'
-  const random = crypto.getRandomValues(new Uint32Array(length))
-  let password = ''
-  for (let index = 0; index < length; index += 1) {
-    password += alphabet[random[index] % alphabet.length]
-  }
-  return password
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
 }
 
 export default App
