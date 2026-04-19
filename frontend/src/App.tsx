@@ -448,8 +448,7 @@ function App() {
             </div>
           </form>
         </section>
-              </div>
-            )}
+        </div>
       )}
 
       {isUnlocked && (
