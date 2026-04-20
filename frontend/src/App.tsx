@@ -361,8 +361,9 @@ function App() {
             <div className="password-input-wrapper">
               <input
                 id="master-password"
+                name="master-password"
                 type={showMasterPassword ? 'text' : 'password'}
-                autoComplete="new-password"
+                autoComplete={vaultState?.isInitialized ? 'current-password' : 'new-password'}
                 value={masterPassword}
                 onChange={(event) => setMasterPassword(event.target.value)}
                 placeholder="Enter a strong master password"
